@@ -1,0 +1,102 @@
+# This is a basic workflow to help you get started with Actions
+
+name: CI-DEV
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the main branch
+  push:
+    branches: [ main ]
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin' # See 'Supported distributions' for available options
+          java-version: '17'
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+      - name: Validate Gradle wrapper
+        uses: gradle/wrapper-validation-action@v1.0.4
+      - name: Execute Gradle test
+        run: ./gradlew test
+
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin' # See 'Supported distributions' for available options
+          java-version: '17'
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+      - name: Validate Gradle wrapper
+        uses: gradle/wrapper-validation-action@v1.0.4
+      - name: Build artifact
+        run: ./gradlew clean build
+      - name: 'Upload Artifact'
+        uses: actions/upload-artifact@v3
+        with:
+          name: fatJar
+          path: './build/libs/buyMeCoffeeBack-0.0.1-SNAPSHOT.jar'
+          retention-days: 1
+
+  deploy:
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    needs: [test, build]
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin' # See 'Supported distributions' for available options
+          java-version: '17'
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+      - name: 'auth'
+        uses: google-github-actions/auth@v0
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID_DEV }}
+          credentials_json: ${{ secrets.GCP_SA_KEY_DEV }}
+      - name: Validate Gradle wrapper
+        uses: gradle/wrapper-validation-action@v1.0.4
+      - name: inject Env Variables in app.yaml
+        uses: gaspb/app-yaml-env-compiler@master # https://github.com/marketplace/actions/gae-environment-variable-compiler-path-configurable
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+        with:
+          appyamlpath: './appengine/app.yaml'
+      - name: Download a single artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: fatJar
+          path:  './appengine/'
+      - id: 'deploy'
+        name: 'deploy'
+        uses: google-github-actions/deploy-appengine@v0
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID_DEV }}
+          deliverables: './appengine/app.yaml'
+          promote: true

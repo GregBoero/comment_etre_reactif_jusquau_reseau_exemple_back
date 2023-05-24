@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: buy-me-coffee
+  mvc:
+    async:
+      request-timeout: -1
+  rsocket:
+    server:
+      port: 8080
+      transport: WEBSOCKET
+  data:
+    mongodb:
+      uri: ${MONGO_URI}
+      database: buyMeCoffeeWaq
+
+server:
+  port: 8081
+  error:
+    include-message: always
+
+management:
+  endpoint:
+    health:
+      show-details: always
+
+# Journalisation des requetes
+logging:
+  level:
+    root: INFO
+    org.springframework: INFO
+    org.springframework.security: ERROR
+    org.springframework.web.filter.CommonsRequestLoggingFilter: WARN
+    org.hibernate.validator.internal.engine.ValidatorImpl: WARN
+    org.hibernate.type.descriptor.sql: WARN
+    org.hibernate.SQL: WARN
+    http://org.springframework.ws.client.MessageTracing: INFO
+    com.desjardins.surveillancesecuritemdp: INFO
+    org.cloudfoundry.security.CloudFoundryContainerTrustManagerFactory: WARN
